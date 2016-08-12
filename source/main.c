@@ -112,27 +112,51 @@ void menu_emunand()
     patches_modified = 1;
 }
 
-int menu_firms()
+int menu_firms(enum firm_types type)
 {
     char firms[MAX_OPTIONS][_MAX_LFN + 1], dirpath[] = PATH_FIRMWARE_DIR;
 
     int pathlen = strlen(dirpath);
-    int count = find_file_pattern(firms, dirpath, pathlen, MAX_OPTIONS, "firmware*.bin");
+    int count = find_file_pattern(firms, dirpath, pathlen, MAX_OPTIONS, "*firmware*.bin");
 
     if (!count) {
-        draw_loading("Failed to load FIRM", "Make sure the encrypted FIRM is\n  located in the firmware directory");
+        draw_loading("Failed to find FIRM", "Make sure the FIRM is\n  located in the "PATH_FIRMWARE_DIR" directory");
         return 1;
     }
 
     char *options[count];
     for (int x = 0; x <= count; x++) options[x] = firms[x];
 
-    int result = draw_menu("Select firmware", 0, count, options);
-    if (result == -1) return 0;
+    int result = 0;
 
-    memcpy(config->firm_path, firms[result], _MAX_LFN + 1);
+    switch (type)
+    {
 
-    reload_native_firm();
+        case NATIVE_FIRM:
+            result = draw_menu("Select native firmware", 0, count, options);
+            if (result == -1) return 0;
+
+            memcpy(config->native_path, firms[result], _MAX_LFN + 1);
+            break;
+
+        case AGB_FIRM:
+            result = draw_menu("Select AGB firmware", 0, count, options);
+            if (result == -1) return 0;
+
+            memcpy(config->agb_path, firms[result], _MAX_LFN + 1);
+            break;
+
+        case TWL_FIRM:
+            result = draw_menu("Select TWL firmware", 0, count, options);
+            if (result == -1) return 0;
+
+            memcpy(config->twl_path, firms[result], _MAX_LFN + 1);
+            break;
+
+        default: return 0;
+    }
+
+    reload_firm(type);
     load_cakes_info(PATH_PATCHES);
 
     return 0;
@@ -143,7 +167,9 @@ void menu_more()
     while (1) {
         char *options[] = {"Toggleable options",
                            "Select emuNAND",
-                           "Select firmware"};
+                           "Select native firmware",
+                           "Select AGB firmware",
+                           "Select TWL firmware"};
         int result = draw_menu("More options", 1, sizeof(options) / sizeof(char *), options);
         
         switch (result) {
@@ -154,7 +180,13 @@ void menu_more()
                 menu_emunand();
                 break;
             case 2:
-                menu_firms();
+                menu_firms(NATIVE_FIRM);
+                break;
+            case 3:
+                menu_firms(AGB_FIRM);
+                break;
+            case 4:
+                menu_firms(TWL_FIRM);
                 break;
             case -1:
                 return;
@@ -264,7 +296,7 @@ void main()
     }
 
     if (load_firms() != 0) {
-        if(menu_firms() !=0) return;
+        if(menu_firms(NATIVE_FIRM) !=0) return;
     }
 
     print("Loading cakes");

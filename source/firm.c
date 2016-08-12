@@ -547,24 +547,42 @@ int load_firms()
 
     print("Loading NATIVE_FIRM...");
     draw_loading(title, "Loading NATIVE_FIRM...");
-    if (load_firm(firm_orig_loc, config->firm_path, PATH_FIRMKEY, PATH_CETK, &firm_size, firm_signatures, &current_firm, NATIVE_FIRM) != 0) return 1;
+    if (load_firm(firm_orig_loc, config->native_path, PATH_FIRMKEY, PATH_CETK, &firm_size, firm_signatures, &current_firm, NATIVE_FIRM) != 0) return 1;
 
     print("Loading TWL_FIRM...");
     draw_loading(title, "Loading TWL_FIRM...");
-    if (load_firm(twl_firm_orig_loc, PATH_TWL_FIRMWARE, PATH_TWL_FIRMKEY, PATH_TWL_CETK, &twl_firm_size, twl_firm_signatures, &current_twl_firm, TWL_FIRM) == 1) return 1;
+    if (load_firm(twl_firm_orig_loc, config->twl_path, PATH_TWL_FIRMKEY, PATH_TWL_CETK, &twl_firm_size, twl_firm_signatures, &current_twl_firm, TWL_FIRM) == 1) return 1;
 
     print("Loading AGB_FIRM...");
     draw_loading(title, "Loading AGB_FIRM...");
-    if (load_firm(agb_firm_orig_loc, PATH_AGB_FIRMWARE, PATH_AGB_FIRMKEY, PATH_AGB_CETK, &agb_firm_size, agb_firm_signatures, &current_agb_firm, AGB_FIRM) == 1) return 1;
+    if (load_firm(agb_firm_orig_loc, config->agb_path, PATH_AGB_FIRMKEY, PATH_AGB_CETK, &agb_firm_size, agb_firm_signatures, &current_agb_firm, AGB_FIRM) == 1) return 1;
 
     return 0;
 }
 
-int reload_native_firm()
+int reload_firm(enum firm_types type)
 {
-    const char *title = "Reloading NATIVE_FIRM";
-    draw_loading(title, "Loading NATIVE_FIRM...");
-    if (load_firm(firm_orig_loc, config->firm_path, PATH_FIRMKEY, PATH_CETK, &firm_size, firm_signatures, &current_firm, NATIVE_FIRM) != 0) return 1;
+    const char *title = "Reloading FIRM";
+    draw_loading(title, "Loading FIRM...");
+
+    int ret = 0;
+
+    switch (type)
+    {
+        case NATIVE_FIRM:
+            ret = load_firm(firm_orig_loc, config->native_path, PATH_FIRMKEY, PATH_CETK, &firm_size, firm_signatures, &current_firm, NATIVE_FIRM);
+            break;
+
+        case AGB_FIRM:
+            ret = load_firm(agb_firm_orig_loc, config->agb_path, PATH_AGB_FIRMKEY, PATH_AGB_CETK, &agb_firm_size, agb_firm_signatures, &current_agb_firm, AGB_FIRM);
+            break;
+
+        case TWL_FIRM:
+            ret = load_firm(twl_firm_orig_loc, config->twl_path, PATH_TWL_FIRMKEY, PATH_TWL_CETK, &twl_firm_size, twl_firm_signatures, &current_twl_firm, TWL_FIRM);
+            break;
+    }
+
+    if (ret != 0) return 1;
 
     return 0;
 }

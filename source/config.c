@@ -9,7 +9,7 @@
 #include "fcram.h"
 #include "paths.h"
 
-static unsigned int config_ver = 5;
+static unsigned int config_ver = 6;
 
 struct config_file *config = (struct config_file *)FCRAM_CONFIG;
 int patches_modified = 0;
@@ -21,7 +21,9 @@ void load_config()
 
     if (read_file(config, PATH_CONFIG, 0x100000) != 0) {
         print("Failed to load the config.\n  Starting from scratch.");
-        memcpy(config->firm_path, PATH_FIRMWARE, strlen(PATH_FIRMWARE));
+        memcpy(config->native_path, PATH_FIRMWARE, strlen(PATH_FIRMWARE));
+        memcpy(config->agb_path, PATH_AGB_FIRMWARE, strlen(PATH_AGB_FIRMWARE));
+        memcpy(config->twl_path, PATH_TWL_FIRMWARE, strlen(PATH_TWL_FIRMWARE));
         patches_modified = 1;
         return;
     }
@@ -29,14 +31,26 @@ void load_config()
     if (config->config_ver != config_ver) {
         print("Invalid config version\n  Starting from scratch");
         memset(config, 0, sizeof(struct config_file));
-        memcpy(config->firm_path, PATH_FIRMWARE, strlen(PATH_FIRMWARE));
+        memcpy(config->native_path, PATH_FIRMWARE, strlen(PATH_FIRMWARE));
+        memcpy(config->agb_path, PATH_AGB_FIRMWARE, strlen(PATH_AGB_FIRMWARE));
+        memcpy(config->twl_path, PATH_TWL_FIRMWARE, strlen(PATH_TWL_FIRMWARE));
         patches_modified = 1;
         return;
     }
 
-    if (!config->firm_path[0]) {
-        print("Firmware config not found.\n Defaulting to firmware.bin");
-        strncpy(config->firm_path, PATH_FIRMWARE, strlen(PATH_FIRMWARE));
+    if (!config->native_path[0]) {
+        print("Native firmware config not found.\n Defaulting to " PATH_FIRMWARE);
+        strncpy(config->native_path, PATH_FIRMWARE, strlen(PATH_FIRMWARE));
+    }
+
+    if (!config->agb_path[0]) {
+        print("AGB firmware config not found.\n Defaulting to " PATH_AGB_FIRMWARE);
+        strncpy(config->agb_path, PATH_AGB_FIRMWARE, strlen(PATH_AGB_FIRMWARE));
+    }
+
+    if (!config->twl_path[0]) {
+        print("TWL firmware config not found.\n Defaulting to " PATH_TWL_FIRMWARE);
+        strncpy(config->twl_path, PATH_TWL_FIRMWARE, strlen(PATH_TWL_FIRMWARE));
     }
 
     print("Loaded config file");

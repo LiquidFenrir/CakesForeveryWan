@@ -7,7 +7,9 @@ struct config_file {
     unsigned int config_ver;
     unsigned int firm_ver;
     uint8_t firm_console;
-    char firm_path[_MAX_LFN + 1];
+    char native_path[_MAX_LFN + 1];
+    char agb_path[_MAX_LFN + 1];
+    char twl_path[_MAX_LFN + 1];
     uint32_t emunand_location;
     unsigned int autoboot_enabled: 1;
     unsigned int silent_boot: 1;
