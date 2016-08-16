@@ -33,6 +33,10 @@ size_t agb_firm_size = FCRAM_SPACING;
 struct firm_signature *current_agb_firm = NULL;
 
 static int update_96_keys = 0;
+
+// TODO: Only use the first 16 bytes instead of the full hash for checking purposes
+static uint8_t keydata_hash[0x20] = {0xB9, 0x4D, 0xB1, 0xB1, 0xC3, 0xE0, 0x11, 0x08, 0x9C, 0x19, 0x46, 0x06, 0x4A, 0xBC, 0x40, 0x2A,
+                                     0x7C, 0x66, 0xF4, 0x4A, 0x74, 0x6F, 0x71, 0x50, 0x32, 0xFD, 0xFF, 0x03, 0x74, 0xD7, 0x45, 0x2C};
 int save_firm = 0;
 #endif
 
@@ -154,20 +158,40 @@ void slot0x11key96_init()
     // Unless the console already has the key initialized, that is.
     uint8_t key[AES_BLOCK_SIZE];
     if (read_file(key, PATH_SLOT0X11KEY96, AES_BLOCK_SIZE) == 0) {
-        // If we can't read the key, we assume it's not needed, and the firmware is the right version.
-        // Otherwise, we make sure the error message for decrypting arm9bin mentions this.
         aes_setkey(0x11, key, AES_KEYNORMAL, AES_INPUT_BE | AES_INPUT_NORMAL);
 
         // Tell boot_firm it needs to regenerate the keys.
         update_96_keys = 1;
     }
+    else
+    {
+        draw_loading("Couldn't find key file!", "Couldn't read the slot2 key!\nMake sure it's placed at " PATH_SLOT0X11KEY96);
+        while(1);
+    }
+}
+
+// TODO: Maybe move to external/crypto.c?
+uint8_t *find_key(uint8_t *search_start, const uint32_t search_len, const uint8_t first_byte, const uint8_t *key_hash)
+{
+    uint8_t hash_tmp[0x20];
+    for (uint32_t i = 0; i < search_len; i++)
+    {
+        uint8_t *loc = search_start + i;
+        if (*loc == first_byte) // First byte matches
+        {
+            sha(hash_tmp, loc, 0x10, SHA_256_MODE); // Calculate the SHA256 hash of the possible key
+            if (!memcmp(hash_tmp, key_hash, 0x20)) // If it's a match, copy it
+                return loc;
+        }
+    }
+    return NULL;
 }
 
 // 0x0B130000 = start of FIRM0 partition, 0x400000 = size of FIRM partition (4MB)
 int dump_firm(void *firm_buffer, const uint8_t firm_id)
 {
-    uint32_t firm_offset = (0x0B130000 + ((firm_id % 2) * 0x400000)),
-             firm_size = 0x100000; // 1MB, because that's the current FIRM size
+    uint32_t firm_offset = (0x0B130000 + (firm_id * 0x400000)),
+             firm_size = 0x100000;  // 1MB, because that's the current FIRM size
 
     uint8_t nand_ctr[0x10],
             nand_cid[0x10],
@@ -237,10 +261,10 @@ int decrypt_cetk_key(void *key, const void *cetk)
 
     if (!common_key_y_init) {
         uint8_t common_key_y[AES_BLOCK_SIZE] = {0};
-        uint8_t *p9_base = (uint8_t *)0x08028000; // Process9 location on a regular boot (non-A9LH)
+        uint8_t *p9_base = (uint8_t *)0x08028000;  // Process9 location on a regular boot (non-A9LH)
         uint32_t search_len = 0x70000;
 
-        if (A9LHBOOT) { // A workaround is necessary when booting from A9LH
+        if (A9LHBOOT) {  // A workaround is necessary when booting from A9LH
             uint8_t *firm_loc = (uint8_t *)fcram_temp + FCRAM_SPACING;
             firm_h *firm = (firm_h*)firm_loc;
             if (dump_firm(firm_loc, 0))
@@ -260,21 +284,18 @@ int decrypt_cetk_key(void *key, const void *cetk)
                 while(1);
             }
 
-            p9_base = (uint8_t *)(firm_loc + firm->section[2].offset); // Beggining of the ARM9 section
+            p9_base = (uint8_t *)(firm_loc + firm->section[2].offset);  // Beggining of the ARM9 section
             search_len = firm->section[2].size;
         }
 
-        uint8_t tmp_hash[0x20];
+        uint8_t *key_y_loc = find_key(p9_base, search_len, 0x0C, key_y_hash);
 
-        for (uint32_t i = 0; i < search_len; i ++) {
-            if (*(p9_base + i) == 0x0C) { // First byte matches
-                sha(tmp_hash, p9_base + i, 0x10, SHA_256_MODE);
-                if (memcmp(tmp_hash, key_y_hash, 0x20) == 0) {
-                    memcpy(common_key_y, p9_base + i, sizeof(common_key_y));
-                    print("Found the common key Y");
-                    break;
-                }
-            }
+        if (key_y_loc)
+            memcpy(common_key_y, key_y_loc, 0x10);
+        else
+        {
+            draw_loading("Couldn't find common key Y", "Try using a prebuilt firmkey.bin");
+            while (1);
         }
 
         aes_setkey(0x3D, common_key_y, AES_KEYY, AES_INPUT_BE | AES_INPUT_NORMAL);
@@ -497,13 +518,13 @@ void boot_firm()
     print("Booting FIRM...");
 
     // Set up the keys needed to boot a few firmwares, due to them being unset, depending on which firmware you're booting from.
-    // TODO: Don't use the hardcoded offset.
     if (update_96_keys && current_firm->console == console_n3ds && current_firm->version > 0x0F) {
-        void *keydata = NULL;
-        if (current_firm->version == 0x1B || current_firm->version == 0x1F) {
-            keydata = (void *)((uintptr_t)firm_loc + firm_loc->section[2].offset + 0x89814);
-        } else if (current_firm->version == 0x21) {
-            keydata = (void *)((uintptr_t)firm_loc + firm_loc->section[2].offset + 0x89A14);
+        uint8_t *keydata = find_key((uint8_t*)firm_loc + firm_loc->section[2].offset + 0x89000, 0x8000, 0xDD, keydata_hash);
+
+        if (!keydata)
+        {
+            draw_loading("ERROR", "Couldn't find N3DS key data.");
+            while(1);
         }
 
         aes_use_keyslot(0x11);
@@ -545,26 +566,25 @@ int load_firms()
 {
     const char *title = "Loading firm";
 
+    int ret;
+
     print("Loading NATIVE_FIRM...");
     draw_loading(title, "Loading NATIVE_FIRM...");
-    if (load_firm(firm_orig_loc, config->native_path, PATH_FIRMKEY, PATH_CETK, &firm_size, firm_signatures, &current_firm, NATIVE_FIRM) != 0) return 1;
+    ret = reload_firm(NATIVE_FIRM);
 
     print("Loading TWL_FIRM...");
     draw_loading(title, "Loading TWL_FIRM...");
-    if (load_firm(twl_firm_orig_loc, config->twl_path, PATH_TWL_FIRMKEY, PATH_TWL_CETK, &twl_firm_size, twl_firm_signatures, &current_twl_firm, TWL_FIRM) == 1) return 1;
+    ret |= reload_firm(TWL_FIRM);
 
     print("Loading AGB_FIRM...");
     draw_loading(title, "Loading AGB_FIRM...");
-    if (load_firm(agb_firm_orig_loc, config->agb_path, PATH_AGB_FIRMKEY, PATH_AGB_CETK, &agb_firm_size, agb_firm_signatures, &current_agb_firm, AGB_FIRM) == 1) return 1;
+    ret |= reload_firm(AGB_FIRM);
 
-    return 0;
+    return ret;
 }
 
 int reload_firm(enum firm_types type)
 {
-    const char *title = "Reloading FIRM";
-    draw_loading(title, "Loading FIRM...");
-
     int ret = 0;
 
     switch (type)
