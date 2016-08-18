@@ -7,7 +7,11 @@
 #define COLOR_SELECTED 0xFF0000
 #define COLOR_BACKGROUND 0x000000
 
-int draw_menu(const char *title, int back, int count, char *options[]);
-int *draw_selection_menu(const char *title, int count, char *options[], const int *preselected);
+enum menu_type {
+    SELECTION,
+    CHECKLIST
+};
+
+int draw_menu(const char *title, int count, char *options[], const int *preselected, int *selected, enum menu_type type);
 int draw_loading(const char *title, const char *text);
 void draw_message(const char *title, const char *text);

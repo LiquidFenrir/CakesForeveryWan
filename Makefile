@@ -38,8 +38,8 @@ cakes := $(patsubst $(dir_patches)/%/, $(dir_out)/cakes/patches/%.cake, $(wildca
 
 provide_files := $(dir_out)/slot0x25keyX_bin.here \
 				 $(dir_out)/slot0x11key96_bin.here \
-				 $(dir_out)/cakes/firmware_bin.here \
-				 $(dir_out)/cakes/cetk.here
+				 $(dir_out)/cakes/firmware/firmware_bin.here \
+				 $(dir_out)/cakes/firmware/cetk.here
 
 .PHONY: all
 all: launcher patches ninjhax
@@ -70,7 +70,7 @@ $(dir_out)/%.here:
 	touch $@
 
 .PHONY: $(dir_out)/Cakes.dat
-$(dir_out)/Cakes.dat: $(dir_build)/main.bin
+$(dir_out)/Cakes.dat: $(dir_out)/arm9loaderhax.bin
 	@mkdir -p "$(@D)"
 	@$(MAKE) $(CAKEFLAGS) -C $(dir_cakehax) launcher
 	dd if=$< of=$@ bs=512 seek=144
@@ -89,7 +89,8 @@ $(dir_out)/3ds/Cakes/Cakes.3dsx $(dir_out)/3ds/Cakes/Cakes.smdh:
 	@mkdir -p "$(@D)"
 	@$(MAKE) $(BRAHFLAGS) -C $(dir_cakebrah) all
 
-$(dir_build)/main.bin: $(dir_build)/main.elf
+$(dir_out)/arm9loaderhax.bin: $(dir_build)/main.elf
+	@mkdir -p "$(@D)"
 	$(OC) -S -O binary $< $@
 
 $(dir_build)/main.elf: $(objects_cfw)

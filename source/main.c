@@ -32,7 +32,8 @@ void menu_select_patches()
         options[i] = cake_list[i].description;
     }
 
-    int *result = draw_selection_menu("Select your cakes", cake_count, options, cake_selected);
+    int result[cake_count];
+    draw_menu("Select your cakes", cake_count, options, cake_selected, result, CHECKLIST);
 
     patches_modified |= memcmp(cake_selected, result, sizeof(cake_selected));
 
@@ -49,8 +50,8 @@ void menu_toggle()
                          save_firm,
                          config->silent_boot};
 
-    int *result = draw_selection_menu("Toggleable options", sizeof(options) / sizeof(char *),
-                                      options, preselected);
+    int result[sizeof(options) / sizeof(char *)];
+    draw_menu("Toggleable options", sizeof(options) / sizeof(char *), options, preselected, result, CHECKLIST);
 
     // Apply the options
     config->autoboot_enabled = result[0];
@@ -105,7 +106,7 @@ void menu_emunand()
     char *options[count];
     for (int x = 0; x <= count; x++) options[x] = emunands[x];
 
-    int result = draw_menu("Select emuNAND", 1, count, options);
+    int result = draw_menu("Select emuNAND", count, options, NULL, NULL, SELECTION);
     if (result == -1) return;
 
     config->emunand_location = result * gap;
@@ -133,24 +134,24 @@ int menu_firms(enum firm_types type)
     {
 
         case NATIVE_FIRM:
-            result = draw_menu("Select native firmware", 0, count, options);
+            result = draw_menu("Select native firmware", count, options, NULL, NULL, SELECTION);
             if (result == -1) return 0;
 
             memcpy(config->native_path, firms[result], _MAX_LFN + 1);
             break;
 
-        case AGB_FIRM:
-            result = draw_menu("Select AGB firmware", 0, count, options);
-            if (result == -1) return 0;
-
-            memcpy(config->agb_path, firms[result], _MAX_LFN + 1);
-            break;
-
         case TWL_FIRM:
-            result = draw_menu("Select TWL firmware", 0, count, options);
+            result = draw_menu("Select TWL firmware", count, options, NULL, NULL, SELECTION);
             if (result == -1) return 0;
 
             memcpy(config->twl_path, firms[result], _MAX_LFN + 1);
+            break;
+
+        case AGB_FIRM:
+            result = draw_menu("Select AGB firmware", count, options, NULL, NULL, SELECTION);
+            if (result == -1) return 0;
+
+            memcpy(config->agb_path, firms[result], _MAX_LFN + 1);
             break;
 
         default: return 0;
@@ -170,7 +171,8 @@ void menu_more()
                            "Select native firmware",
                            "Select AGB firmware",
                            "Select TWL firmware"};
-        int result = draw_menu("More options", 1, sizeof(options) / sizeof(char *), options);
+
+        int result = draw_menu("More options", sizeof(options)/ sizeof(char *), options, NULL, NULL, SELECTION);
         
         switch (result) {
             case 0:
@@ -201,19 +203,25 @@ void version_info()
 
     draw_string(screen_top_left, "NATIVE_FIRM version:", 0, pos_y, COLOR_NEUTRAL);
     draw_string(screen_top_left, current_firm->version_string, version_pos_x, pos_y, COLOR_NEUTRAL);
+    pos_y += SPACING_VERT;
+    draw_string(screen_top_left, config->native_path, 0, pos_y, COLOR_NEUTRAL);
 
     if (current_twl_firm) {
-        pos_y += SPACING_VERT;
+        pos_y += SPACING_VERT * 2;
 
         draw_string(screen_top_left, "TWL_FIRM version:", 0, pos_y, COLOR_NEUTRAL);
         draw_string(screen_top_left, current_twl_firm->version_string, version_pos_x, pos_y, COLOR_NEUTRAL);
+        pos_y += SPACING_VERT;
+        draw_string(screen_top_left, config->twl_path, 0, pos_y, COLOR_NEUTRAL);
     }
 
     if (current_agb_firm) {
-        pos_y += SPACING_VERT;
+        pos_y += SPACING_VERT * 2;
 
         draw_string(screen_top_left, "AGB_FIRM version:", 0, pos_y, COLOR_NEUTRAL);
         draw_string(screen_top_left, current_agb_firm->version_string, version_pos_x, pos_y, COLOR_NEUTRAL);
+        pos_y += SPACING_VERT;
+        draw_string(screen_top_left, config->agb_path, 0, pos_y, COLOR_NEUTRAL);
     }
 
     draw_string(screen_top_left, "Press B to return", 0, pos_y + 20, COLOR_SELECTED);
@@ -229,14 +237,20 @@ void version_info()
 void menu_main()
 {
     while (1) {
+
         char *options[] = {"Boot CFW",
                            "Select Patches",
                            "More options...",
                            "Version info",
                            "Power off"};
-        int result = draw_menu("CakesFW " CAKES_VERSION, 0, sizeof(options) / sizeof(char *), options);
+
+        display_main_menu:;
+
+        int result = draw_menu("CakesFW " CAKES_VERSION, sizeof(options) / sizeof(char *), options, NULL, NULL, SELECTION);
 
         switch (result) {
+            case -1:
+                goto display_main_menu;
             case 0:
                 save_config();
                 boot_cfw();
