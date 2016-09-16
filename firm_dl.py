@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# The terribleness shows
+
 import sys
 import urllib.request
 
@@ -16,7 +18,7 @@ cetkurls = [
            ]
 
 firmurls = [
-            ["0004013800000002/00000052", "0004013820000002/00000021"],
+            ["0004013800000002/00000056", "0004013820000002/00000026"],
             ["0004013800000102/00000016", "0004013820000102/00000000"],
             ["0004013800000202/0000000B", "0004013820000202/00000000"]
            ]
@@ -25,8 +27,6 @@ intro = "FIRM Downloader\nDownloads the latest firmware files from the CDN"
 help  = "Use either 'o3ds' or 'n3ds', depending on your console"
 
 console = 0
-
-# Actual code
 
 if len(sys.argv) < 2:
     sys.exit(help)
