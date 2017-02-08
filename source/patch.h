@@ -4,7 +4,7 @@
 #include "headers.h"
 #include "fatfs/ffconf.h"
 
-#define MAX_CAKES 0x10
+#define MAX_CAKES 0xFF
 
 struct cake_info {
     char path[_MAX_LFN + 1];
